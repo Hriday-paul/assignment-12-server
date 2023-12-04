@@ -52,6 +52,7 @@ async function run() {
         const userList = dataBase.collection("users");
         const parcelBookedLiist = dataBase.collection("bookedList");
         const delivaryManList = dataBase.collection("delivaryMans");
+        const deliveredList = dataBase.collection("delivered");
 
         //verify admin
         const verifyAdmin = async (req, res, next) => {
@@ -85,6 +86,24 @@ async function run() {
                 res.status(402).send({ err })
             }
         })
+
+        app.get("/user/deliveryMan", verifyToken, async (req, res) => {
+            try {
+                if (req.user.email !== req.query.email) {
+                    res.status(404).send({ message: "unOthorize person" });
+                }
+                const user = await userList.findOne({ email: req.query.email });
+                let deliveryMan = false;
+                if (user) {
+                    deliveryMan = user?.userType === 'deliveryMan';
+                }
+                res.send({ deliveryMan });
+            } catch (err) {
+                res.status(402).send({ err })
+            }
+        })
+
+
 
         //get all users
         app.get("/allUsers", verifyToken, verifyAdmin, async (req, res) => {
@@ -185,9 +204,7 @@ async function run() {
         //delete booke
         app.delete("/deleteBook", verifyToken, async (req, res) => {
             try {
-                if (req.user.email !== req.query.email) {
-                    res.status(404).send({ message: "unOthorize person" });
-                }
+                
                 const result = await parcelBookedLiist.deleteOne({ _id: new ObjectId(req.query.id) })
                 res.status(200).send(result)
             } catch (err) {
@@ -284,11 +301,46 @@ async function run() {
             }
         })
 
+        //get homne page information 
 
-
-        app.get("/", (req,res)=>{
-            res.send({message : 'ok'})
+        app.get("/homePage", async (req, res) => {
+            try {
+                const parcelRunnigLen = await parcelBookedLiist.countDocuments();
+                const userLen = await userList.countDocuments();
+                const bookedLen = await deliveredList.countDocuments()
+                res.status(200).send({ parcelRunnigLen, userLen, bookedLen })
+            } catch (err) {
+                res.status(402).send({ err })
+            }
         })
+
+        //get deliveryman info
+        app.get('/deliveryManInfo/:email', verifyToken, async (req, res) => {
+            try {
+                if (req.user.email !== req.params.email) {
+                    res.status(404).send({ message: "unOthorize person" });
+                }
+                const result = await delivaryManList.findOne({ dEmail: req.params.email })
+                res.status(200).send(result)
+            } catch (err) {
+                res.status(402).send({ err })
+            }
+        })
+
+        //get deliveryData by deliveryMans
+        app.get('/runningDeliveryDatas/:email', verifyToken, async (req, res) => {
+            try {
+                if (req.user.email !== req.params.email) {
+                    res.status(404).send({ message: "unOthorize person" });
+                }
+                const result = await parcelBookedLiist.find({ deliveryMan: req.query.id }).toArray()
+                res.status(200).send(result)
+            } catch (err) {
+                res.status(402).send({ err })
+            }
+        })
+
+
 
 
         //create jwt token
